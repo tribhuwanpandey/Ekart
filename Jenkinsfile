@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'
-        NVD_API_KEY = credentials('nvd-api-key')  // Jenkins secret text credential
+        NVD_API_KEY = credentials('nvd-api-key') // Secret text
+        DOCKER_HUB_PASSWORD = credentials('tp109') // Secret text
     }
 
     tools {
@@ -12,90 +12,93 @@ pipeline {
     }
 
     stages {
-        stage('git checkout') {
+        stage('Git Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/tribhuwanpandey/Ekart.git'
             }
         }
 
-        stage('compile') {
+        stage('Compile') {
             steps {
-                sh "mvn compile"
+                sh 'mvn compile'
             }
         }
 
-        stage('unit tests') {
+        stage('Unit Tests') {
             steps {
-                sh "mvn test -DskipTests=true"
+                // RUN tests instead of skipping them!
+                sh 'mvn test'
             }
         }
 
-        stage('SonarQube analysis') {
+        stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar-token') {
-                    sh "${env.SCANNER_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectKey=EKART \
-                        -Dsonar.projectName=EKART \
-                        -Dsonar.java.binaries=target/classes"
+                    script {
+                        def scannerHome = tool 'sonar-scanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=EKART \
+                            -Dsonar.projectName=EKART \
+                            -Dsonar.java.binaries=target/classes
+                        """
+                    }
                 }
             }
         }
 
         stage('OWASP Dependency Check') {
             steps {
-                  withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-                    dependencyCheck additionalArguments: "--nvdApiKey=$NVD_API_KEY",
-                                    odcInstallation: 'DC'
-             }
-        }
-        }
-
-        stage('Build') {
-            steps {
-                sh "mvn package -DskipTests=true"
-            }
-        }
-
-        stage('deploy to Nexus') {
-            steps {
-                withMaven(globalMavenSettingsConfig: 'global-maven', jdk: 'jdk-17', maven: 'maven3', mavenSettingsConfig: '', traceability: true) {
-                    sh "mvn deploy -DskipTests=true"
+                script {
+                    dependencyCheck additionalArguments: "--nvdApiKey=${NVD_API_KEY}",
+                                    odcInstallation: 'DC' // Make sure this matches your Jenkins tool config
                 }
             }
         }
-        
 
-        stage('build and Tag docker image') {
+        stage('Build Package') {
+            steps {
+                sh 'mvn package -DskipTests=true'
+            }
+        }
+
+        stage('Deploy to Nexus') {
+            steps {
+                withMaven(globalMavenSettingsConfig: 'global-maven',
+                          jdk: 'jdk-17',
+                          maven: 'maven3',
+                          mavenSettingsConfig: '',
+                          traceability: true) {
+                    sh 'mvn deploy -DskipTests=true'
+                }
+            }
+        }
+
+        stage('Build and Tag Docker Image') {
+            steps {
+                sh 'docker build -t tp109/ekart:latest -f docker/Dockerfile .'
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
             steps {
                 script {
-                        sh "docker build -t tp109/ekart:latest -f docker/Dockerfile ."
-                    }
+                    sh "echo ${DOCKER_HUB_PASSWORD} | docker login -u tp109 --password-stdin"
+                    sh 'docker push tp109/ekart:latest'
+                }
             }
         }
 
-        stage('Push image to Hub'){
-            steps{
-                script{
-                   withCredentials([string(credentialsId: 'tp109', variable: 'dockerhubpwd')]) {
-                   sh 'docker login -u tp109 -p ${dockerhubpwd}'}
-                   sh 'docker push tp109/ekart:latest'
-                }
+        stage('Configure EKS and Kubectl') {
+            steps {
+                sh 'aws eks update-kubeconfig --region ap-south-1 --name project-cluster'
             }
         }
-        stage('EKS and Kubectl configuration'){
-            steps{
-                script{
-                    sh 'aws eks update-kubeconfig --region ap-south-1 --name project-cluster'
-                }
-            }
-        }
-        stage('Deploy to k8s'){
-            steps{
-                script{
-                    sh 'kubectl apply -f deploymentservice.yml'
-                }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f deploymentservice.yml'
             }
         }
     }
-
 }
