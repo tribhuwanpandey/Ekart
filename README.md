@@ -184,7 +184,13 @@ Access the Ekart app via LoadBalancer URL.
 
 ![alt text](<Screenshot 2025-10-29 174531.png>)
 
+#### Snapshort
 
+![alt text](<Screenshot 2025-10-29 175316.png>)
+
+#### Sonar
+
+![alt text](<Screenshot 2025-10-29 175209.png>)
 
 ---
 
