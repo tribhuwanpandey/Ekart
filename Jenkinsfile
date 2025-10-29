@@ -14,7 +14,7 @@ pipeline {
     stages {
         stage('git checkout') {
             steps {
-                git branch: 'master', url: 'https://github.com/tribhuwanpandey/Ekart.git'
+                git branch: 'main', url: 'https://github.com/tribhuwanpandey/Ekart.git'
             }
         }
 
@@ -74,14 +74,16 @@ pipeline {
         }
 
         stage('Push image to Hub'){
-            steps{
-                script{
-                   withCredentials([string(credentialsId: 'tp109', variable: 'dockerhubpwd')]) {
-                   sh 'docker login -u tp109 -p ${dockerhubpwd}'}
-                   sh 'docker push tp109/ekart:latest'
-                }
+    steps{
+        script{
+            withCredentials([string(credentialsId: 'tp109', variable: 'dockerhubpwd')]) {
+                sh 'docker login -u tp109 -p ${dockerhubpwd}'
             }
+            sh 'docker push tp109/ekart:latest'
         }
+    }
+}
+
         stage('EKS and Kubectl configuration'){
             steps{
                 script{
