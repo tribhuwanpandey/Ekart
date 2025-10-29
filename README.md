@@ -20,7 +20,7 @@ It is organized into **three separate GitHub repositories**, each responsible fo
 ## 1. [Terraform Infrastructure Repo](https://github.com/tribhuwanpandey/Jenkins-sonar-nexus)
 
 
-###  Repository: `terraform-infra`
+###  Repository: `Jenkins-sonar-nexus`
 
 This repository contains Terraform scripts to provision **three EC2 instances** on AWS for the foundational DevOps tools.
 
